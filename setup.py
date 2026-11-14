@@ -10,7 +10,7 @@ setup(
     name = pkg['name'],
     version = pkg['version'],
     description = 'Buildbotics Machine Controller',
-    long_description = open('README.md', 'rt').read(),
+    long_description = open('README.md', 'rt', encoding='utf-8').read(),
     author = 'Joseph Coffland',
     author_email = 'joseph@buildbotics.org',
     platforms = ['any'],

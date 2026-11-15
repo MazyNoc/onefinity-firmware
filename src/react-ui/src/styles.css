@@ -256,8 +256,11 @@ input[type=checkbox]:not(.switch), input[type=radio] { width: 20px; height: 20px
 .mdi-row { display: flex; gap: 8px; } .mdi-row input { flex: 1; min-width: 0; font: 500 16px ui-monospace, Menlo, Consolas, monospace; }
 .mdi-row button { min-width: 88px; }
 .hist { list-style: none; padding: 0; margin: 8px 0; } .hist button { width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; }
-.cam { position: relative; display: inline-block; max-width: 100%; } .cam img { display: block; max-width: 100%; border-radius: 6px; border: 1px solid var(--rule); }
-.cross { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(var(--yellow), var(--yellow)) center / 1px 100% no-repeat, linear-gradient(var(--yellow), var(--yellow)) center / 100% 1px no-repeat; opacity: .8; }
+.cam { position: relative; display: inline-block; max-width: 100%; } .cam img { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--rule); }
+.cross { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 2; pointer-events: none; opacity: .85; }
+.cross i { position: absolute; display: block; background: var(--yellow); }
+.cross .v { top: 0; bottom: 0; left: 50%; width: 2px; margin-left: -1px; }
+.cross .h { left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; }
 .setter-actions { display: grid; gap: 14px; margin: 14px 0; } .setter-actions > div { display: grid; grid-template-columns: 260px 1fr; gap: 14px; align-items: center; }
 .setter-actions small { color: var(--dim); } .setter-actions button.big { min-height: 52px; font-size: 17px; }
 .why.bad { border-left-color: #ff6a5f; background: rgba(255,106,95,.08); }

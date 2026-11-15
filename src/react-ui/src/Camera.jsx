@@ -66,10 +66,40 @@ function Focus({ saved, onSave }) {
   );
 }
 
+function Size({ onChange }) {
+  const [st, setSt] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let dead = false;
+    api.get("camera").then((s) => { if (!dead) setSt(s); }).catch(() => {});
+    return () => { dead = true; };
+  }, []);
+
+  if (!st || !st.connected || !st.sizes || st.sizes.length < 2) return null;
+  const pick = async (value) => {
+    const [width, height] = value.split("x").map(Number);
+    setBusy(true);
+    try {
+      const s = await api.put("camera", { width, height });
+      setSt(s);
+      onChange();
+    } catch {}
+    setBusy(false);
+  };
+  return (
+    <label className="cam-mount">Picture size
+      <select value={`${st.width}x${st.height}`} disabled={busy} onChange={(e) => pick(e.target.value)}>
+        {st.sizes.map(([w, h]) => <option key={`${w}x${h}`} value={`${w}x${h}`}>{w} × {h}</option>)}
+      </select></label>
+  );
+}
+
 export default function Camera({ state, cfg, idle, send, subscribe, path, onMeasure }) {
   const [cross, setCross] = useState(true);
   const [broken, setBroken] = useState(false);
   const [bedKey, setBedKey] = useState(0);
+  const [imgKey, setImgKey] = useState(0);
   const [cam, update] = useCamPrefs();
   const [calib, setCalib] = useState(null);      // null | {step: 1} | {step: 2, t0}
   const [busy, setBusy] = useState(false);
@@ -167,11 +197,12 @@ export default function Camera({ state, cfg, idle, send, subscribe, path, onMeas
         <button onClick={() => setCross((c) => !c)}>{cross ? "Hide crosshair" : "Show crosshair"}</button>
         <button onClick={() => setBroken(false)}>Reconnect</button>
         <button disabled={broken} onClick={snap}>Save snapshot</button>
+        {cam && !broken && <Size onChange={() => setImgKey((k) => k + 1)} />}
         {cam && !broken && <Focus saved={cam.focus} onSave={(v) => update((c) => ({ ...c, focus: v }))} />}
       </div>
       <div className="cam-layout">
         {broken ? <p className="empty">No camera image. Plug a camera into a USB port on the controller.</p> : (
-          <div className="cam"><img ref={imgRef} src="/api/video" alt="Camera view" onError={() => setBroken(true)} />{cross && <div className="cross" />}</div>
+          <div className="cam"><img key={imgKey} ref={imgRef} src={`/api/video?${imgKey}`} alt="Camera view" onError={() => setBroken(true)} />{cross && <div className="cross"><i className="v" /><i className="h" /></div>}</div>
         )}
 
         {cam && (

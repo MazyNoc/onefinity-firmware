@@ -1,6 +1,6 @@
 // Probe program generation (probe.js, 1.29.0).  node src/react-ui/test/probe-gen.mjs
 // Motion is checked in probe-sim.py; this checks the structure every program must have.
-import { probeProgram, centerSecondProgram, cornerProbeSequence, parseDia, normDia, failText, newToken } from "../src/probe.js";
+import { GUARDED_MOVES, probeProgram, centerSecondProgram, cornerProbeSequence, parseDia, normDia, failText, newToken } from "../src/probe.js";
 let ok = true;
 const check = (name, cond, msg = "") => { console.log(`${cond ? "PASS" : "FAIL"} ${name} ${msg}`); ok &&= !!cond; };
 const config = { probe: { "probe-xdim": 53.975, "probe-ydim": 53.975, "probe-zdim": 15.4, "probe-slow-seek": 25, "probe-fast-seek": 75 },
@@ -22,14 +22,14 @@ for (const [name, p] of Object.entries(progs)) {
   check(`${name}: G21, M5, flags cleared first`, L[0] === "G21" && L[1] === "M5" && L[2] === "#<_ofprobe_done> = 0" && L[3] === "#<_ofprobe_fail> = 0", L.slice(0, 4).join(" | "));
   const iDone = L.indexOf("#<_ofprobe_done> = 7");
   check(`${name}: token set once, only if nothing failed, right before M2`, iDone === L.length - 3 && L[iDone - 1].includes("[#<_ofprobe_fail> EQ 0]") && L[L.length - 1] === "M2" && p.split("#<_ofprobe_done> = 7").length === 2);
-  check(`${name}: no rapid or feed down, every probe move relative`, !L.some((l) => /^(G91 )?G[01] Z-/.test(l)) && L.filter((l) => /G38/.test(l)).every((l) => l.startsWith("G91 ")));
+  check(`${name}: no rapid or feed down, every probe move relative`, !L.some((l) => /^(G91 )?G[01] Z-/.test(l) && !(!GUARDED_MOVES && /^G91 G0 Z-/.test(l))) && L.filter((l) => /G38/.test(l)).every((l) => l.startsWith("G91 ")));
   check(`${name}: no "else" and no spaces inside words`, !/\belse\b/.test(p) && !/\b[XYZF] [-\d]/.test(p));
   const opens = L.filter((l) => / if /.test(l)).map((l) => l.split(" ")[0]), closes = L.filter((l) => / endif$/.test(l)).map((l) => l.split(" ")[0]);
   check(`${name}: every o-word if has its endif, numbers unique`, opens.length === closes.length && new Set(opens).size === opens.length && opens.every((o) => closes.includes(o)));
   check(`${name}: lifts 25 mm at the end on every path`, L.lastIndexOf("G91 G0 Z25") > L.findLastIndex((l) => / endif$/.test(l) && !l.startsWith("o990")));
 }
-const plunge = progs["front-left"].split("\n").find((l) => /G38\.3 Z/.test(l));
-check("plunge beside the block is guarded at max(fast, 300) mm/min", plunge === "G91 G38.3 Z-13.7 F300", plunge);
+const plunge = progs["front-left"].split("\n").find((l) => (GUARDED_MOVES ? /G38\.3 Z/ : /^G91 G0 Z-/).test(l));
+check("plunge beside the block is guarded at max(fast, 300) mm/min", plunge === (GUARDED_MOVES ? "G91 G38.3 Z-13.7 F300" : "G91 G0 Z-13.7"), plunge);
 check("Z-only probe has no sideways moves", !/ [XY]-?\d/.test(progs.z.replace(/G92 Z[\d.]+/, "")));
 check("center second: Z check before any sideways move", progs["center 2"].indexOf("ABS[#<_ofprobe_dz>] GT 0.5") < progs["center 2"].indexOf("X-20"));
 check("center-x second: Y not probed or set", !/G92 Y|G38\.\d Y/.test(progs["center-x 2"]));

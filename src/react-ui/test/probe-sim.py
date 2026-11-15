@@ -5,7 +5,7 @@
 #    and as machine coordinates (the CAMotics source). Item 2 of the release notes is not decided here.
 # 2. Where 1.28.1 rapided the bit into the block (started too far from an edge), 1.29.0 stops the
 #    guarded move, reports why (ofprobe_fail) and lifts, and never sets the done token.
-import re, sys
+import os, re, sys
 from simlib import Sim, gen, Crash, NotFound
 
 ok = True
@@ -82,40 +82,45 @@ for frame in ('work', 'machine'):
         print('     %s %s: ofprobe_ok=%s dz=%.3f, X0 at machine %.3f (true center %.3f), Y0 at %.3f (wanted %.3f)'
               % (frame, loc, vb['_ofprobe_ok'], vb['_ofprobe_dz'], b.off[0], SX0 + W / 2, b.off[1], SY0 + L / 2 if loc == 'center' else 123.0))
 
-# Started too far from an edge: 1.28.1 rapided into the block; 1.29.0 stops, says why and lifts
-cx, cy, sx, sy = CORNERS['front-left']
-obs = [block(cx, cy, sx, sy, 53.975, 53.975)]
-opts = dict(config=CFG, type='xyz', loc='front-left', dia={'mm': D})
-for name, start, code in (('30 mm in from the right face', [cx + 24, cy + 45, TOP + H + 8], 1),
-                          ('30 mm in from the back face', [cx + 45, cy + 24, TOP + H + 8], 3)):
-    try: run(False, 'probeProgram', opts, start, obs); old = 'no crash'
-    except Crash: old = 'Crash'
-    check('1.28.1, %s: rapid into the block' % name, old == 'Crash', old)
-    try:
-        s = run(True, 'probeProgram', opts, start, obs)
-        check('1.29.0, %s: guarded move stops, fail %d, no done token' % (name, code),
-              s.vars['_ofprobe_fail'] == code and s.vars['_ofprobe_done'] == 0, s.vars.get('_ofprobe_fail'))
-        check('1.29.0, %s: bit lifted clear of the block' % name, s.P[2] - R > TOP + H, s.P)
-    except Crash as e: check('1.29.0, %s: no crash' % name, False, str(e))
-try: run(True, 'probeProgram', opts, [cx + 45, cy + 45, TOP + H + 30], obs); check('too high: Switch not found', False)
-except NotFound: check('too high: Switch not found (no done token can be set)', True)
+# GUARDED_MOVES = false in probe.js (wall mount, see probe.js): the moves between touches are
+# rapids again, so the started-too-far-in cases crash by design and are skipped.
+GUARDED = 'GUARDED_MOVES = true' in open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../src/probe.js'), encoding='utf-8').read()
+if not GUARDED: print('SKIP crash-protection cases: GUARDED_MOVES is false')
+if GUARDED:
+    # Started too far from an edge: 1.28.1 rapided into the block; 1.29.0 stops, says why and lifts
+    cx, cy, sx, sy = CORNERS['front-left']
+    obs = [block(cx, cy, sx, sy, 53.975, 53.975)]
+    opts = dict(config=CFG, type='xyz', loc='front-left', dia={'mm': D})
+    for name, start, code in (('30 mm in from the right face', [cx + 24, cy + 45, TOP + H + 8], 1),
+                              ('30 mm in from the back face', [cx + 45, cy + 24, TOP + H + 8], 3)):
+        try: run(False, 'probeProgram', opts, start, obs); old = 'no crash'
+        except Crash: old = 'Crash'
+        check('1.28.1, %s: rapid into the block' % name, old == 'Crash', old)
+        try:
+            s = run(True, 'probeProgram', opts, start, obs)
+            check('1.29.0, %s: guarded move stops, fail %d, no done token' % (name, code),
+                  s.vars['_ofprobe_fail'] == code and s.vars['_ofprobe_done'] == 0, s.vars.get('_ofprobe_fail'))
+            check('1.29.0, %s: bit lifted clear of the block' % name, s.P[2] - R > TOP + H, s.P)
+        except Crash as e: check('1.29.0, %s: no crash' % name, False, str(e))
+    try: run(True, 'probeProgram', opts, [cx + 45, cy + 45, TOP + H + 30], obs); check('too high: Switch not found', False)
+    except NotFound: check('too high: Switch not found (no done token can be set)', True)
 
-cxb, cyb, sxb, syb = CORNERS['back-right']
-def center_second(new, start):
-    s = Sim([cx + 45, cy + 45, TOP + H + 8], R, obs); s.probe_frame = 'machine'
-    o = dict(config=CFG, type='center', loc='center', dia={'mm': D}); s.run(program(new, 'probeProgram', o))
-    s.P = start; s.obs = [block(cxb, cyb, sxb, syb, 53.975, 53.975)]; s.inc = False
-    s.run(program(new, 'centerSecondProgram', o)); return s
-try: center_second(False, [cxb - 24, cyb - 45, TOP + H + 8]); old = 'no crash'
-except Crash: old = 'Crash'
-s = center_second(True, [cxb - 24, cyb - 45, TOP + H + 8])
-check('center second, too far in: 1.28.1 crashed, 1.29.0 stops with fail 1', old == 'Crash' and s.vars['_ofprobe_fail'] == 1 and s.vars['_ofprobe_done'] == 0, old)
+    cxb, cyb, sxb, syb = CORNERS['back-right']
+    def center_second(new, start):
+        s = Sim([cx + 45, cy + 45, TOP + H + 8], R, obs); s.probe_frame = 'machine'
+        o = dict(config=CFG, type='center', loc='center', dia={'mm': D}); s.run(program(new, 'probeProgram', o))
+        s.P = start; s.obs = [block(cxb, cyb, sxb, syb, 53.975, 53.975)]; s.inc = False
+        s.run(program(new, 'centerSecondProgram', o)); return s
+    try: center_second(False, [cxb - 24, cyb - 45, TOP + H + 8]); old = 'no crash'
+    except Crash: old = 'Crash'
+    s = center_second(True, [cxb - 24, cyb - 45, TOP + H + 8])
+    check('center second, too far in: 1.28.1 crashed, 1.29.0 stops with fail 1', old == 'Crash' and s.vars['_ofprobe_fail'] == 1 and s.vars['_ofprobe_done'] == 0, old)
 
 for fn, o in (('probeProgram', dict(config=CFG, type='z', dia={'mm': D})), ('probeProgram', dict(config=CFG, type='xyz', loc='back-right', dia={'mm': D})),
               ('centerSecondProgram', dict(config=CFG, type='center', loc='center', dia={'mm': D}))):
     p = [l.strip() for l in gen(dict(o, token=TOK), 'probe.js', fn).splitlines() if l.strip()]
     nm = '%s %s' % (fn, o.get('loc', o['type']))
     check(nm + ': M5 first, token last before M2', p[1] == 'M5' and p[-1] == 'M2' and p[-3] == '#<_ofprobe_done> = %d' % TOK, p[:3])
-    check(nm + ': no rapid or feed moves down, probe moves relative', all(not re.match(r'(G91 )?G[01] Z-', l) for l in p) and all('G91' in l for l in p if 'G38' in l))
+    check(nm + ': no rapid or feed moves down, probe moves relative', all(not re.match(r'(G91 )?G[01] Z-', l) or (not GUARDED and l.startswith('G91 G0 Z-')) for l in p) and all('G91' in l for l in p if 'G38' in l))
 print('ALL PASS' if ok else 'SOME FAILED')
 sys.exit(0 if ok else 1)

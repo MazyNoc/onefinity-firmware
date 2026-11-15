@@ -61,6 +61,11 @@ o${id} endif
 M2
 `;
 
+// Guarded moves between touches (G38.3) stop the bit if it hits the block. Off on this
+// machine: start Probe XYZ with the bit over the block, less than 20 mm in from both edges.
+export const GUARDED_MOVES = false;
+const GUARD_LABEL = GUARDED_MOVES ? ", guarded" : "";
+
 // Guarded feed: as fast as the fast seek, at least 300 mm/min so the extra moves don't drag.
 const guardFeed = (fast) => n(Math.min(Math.max(Number(fast) || 0, 300), 1000));
 
@@ -77,6 +82,10 @@ export function cornerProbeSequence(o) {
   const guard = (body) => { const k = id++; add(`o${k} if [#<_ofprobe_fail> EQ 0]\n${body}\no${k} endif`); };
   // On contact: say which move it was, and back 1 mm off the block before the final lift
   const guarded = (axis, dist, code) => {
+    // Wall mount: a G38 seek drops every motor to its stall current (drv8711.c),
+    // so the vertical X axis sags. Until that is fixed in the AVR code, these
+    // moves are plain rapids as in 1.6.6, without crash detection.
+    if (!GUARDED_MOVES) return `G91 G0 ${axis}${n(dist)}`;
     const k = id++;
     return `G91 G38.3 ${axis}${n(dist)} F${gf}\no${k} if [#5070 EQ 1]\n#<_ofprobe_fail> = ${code}\nG91 G1 ${axis}${n(dist > 0 ? -1 : 1)} F${o.fastSeek}\no${k} endif`;
   };
@@ -91,7 +100,7 @@ ${keep("zt", "#5063")}${keep("ok", "-1")}${o.afterZ || ""}`);
   add(`${mark("Move out past the " + fx + " face")}
 G91 G0 Z${n(o.zLift)}
 G91 G0 X${n(20 * o.sx)}`);
-  add(`${mark("Go down beside the block, guarded")}\n${guarded("Z", -o.plunge, 1)}`);
+  add(`${mark("Go down beside the block" + GUARD_LABEL)}\n${guarded("Z", -o.plunge, 1)}`);
   guard(`${mark("Touch the " + fx + " face")}
 G91 G38.2 X${n(-20 * o.sx)} F${o.fastSeek}
 G91 G1 X${n(o.sx)}
@@ -99,8 +108,8 @@ G91 G38.2 X${n(-2 * o.sx)} F${o.slowSeek}
 ${keep("xa", "#5061")}${o.afterX || ""}
 G91 G0 X${n(o.sx)}`);
   if (o.probeY !== false) {
-    guard(`${mark("Move along the " + fx + " face, guarded")}\n${guarded("Y", 20 * o.sy, 2)}`);
-    guard(`${mark("Move round to the " + fy + " face, guarded")}\n${guarded("X", -20 * o.sx, 3)}`);
+    guard(`${mark("Move along the " + fx + " face" + GUARD_LABEL)}\n${guarded("Y", 20 * o.sy, 2)}`);
+    guard(`${mark("Move round to the " + fy + " face" + GUARD_LABEL)}\n${guarded("X", -20 * o.sx, 3)}`);
     guard(`${mark("Touch the " + fy + " face")}
 G91 G38.2 Y${n(-20 * o.sy)} F${o.fastSeek}
 G91 G1 Y${n(o.sy)}

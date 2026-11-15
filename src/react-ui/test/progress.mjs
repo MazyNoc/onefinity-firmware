@@ -2,7 +2,7 @@
 // Each program numbers its moves with #<_of_step> = N (label); the screens read the labels back
 // (progress.js) and show the one the controller reports as running (state of_step).
 import { programMoves, moveStatus, STEP_RESET } from "../src/progress.js";
-import { probeProgram, centerSecondProgram } from "../src/probe.js";
+import { GUARDED_MOVES, probeProgram, centerSecondProgram } from "../src/probe.js";
 import { measureProgram, MEASURE_DEFAULTS } from "../src/measure.js";
 import { setterProgram } from "../src/setter.js";
 let ok = true;
@@ -37,7 +37,7 @@ for (const [name, p] of Object.entries(progs)) {
   check(`${name}: every probing move has a mark since the last one`, L.every((l, i) => !/G38\.[23]/.test(l) || L.slice(0, i).some((x) => x.startsWith("#<_of_step> = ") && x !== STEP_RESET)));
 }
 const fl = programMoves(progs["probe front-left"]).map((x) => x.label);
-check("front-left labels", fl.join(" | ") === "Touch the block top | Move out past the left face | Go down beside the block, guarded | Touch the left face | Move along the left face, guarded | Move round to the front face, guarded | Touch the front face | Lift clear", fl.join(" | "));
+check("front-left labels", fl.join(" | ") === "Touch the block top | Move out past the left face | Go down beside the block, guarded | Touch the left face | Move along the left face, guarded | Move round to the front face, guarded | Touch the front face | Lift clear".replace(/, guarded/g, GUARDED_MOVES ? ", guarded" : ""), fl.join(" | "));
 const br = programMoves(progs["probe back-right"]).map((x) => x.label);
 check("back-right names its faces", br.includes("Touch the right face") && br.includes("Touch the back face"), br.join(" | "));
 const s = moveStatus(programMoves(progs["probe front-left"]), 3);

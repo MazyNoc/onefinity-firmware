@@ -45,10 +45,13 @@ class Jog(inevent.JogHandler):
                 "lock":     [0x124, 0x125],
             },
 
+            # Wall-mounted machine: X (carriage) is vertical. The pad is used
+            # upright, so left stick up = X+ and left stick left = Y+.
+            # Stock was axes [ABS_X, ABS_Y, ABS_RY, ABS_RX], dir [1, -1, -1, 1].
             "default": {
                 "deadband": 0.1,
-                "axes":     [ABS_X, ABS_Y, ABS_RY, ABS_RX],
-                "dir":      [1, -1, -1, 1],
+                "axes":     [ABS_Y, ABS_X, ABS_RY, ABS_RX],
+                "dir":      [-1, -1, -1, 1],
                 "arrows":   [ABS_HAT0X, ABS_HAT0Y],
                 "speed":    [0x133, 0x130, 0x131, 0x134],
                 "lock":     [0x136, 0x137],
